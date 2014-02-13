@@ -31,6 +31,33 @@ tvComedy = []
 
 listOfTweets=[]
 
+def find_winner(possiblelist):
+	return Counter(possiblelist).most_common(1)[0][0]
+
+def print_winner(winner, category):
+	print find_winner(winner) + "won " + category
+	print "\n"
+
+# def find_category(tweetlist):
+# 	possibleCat=[]
+# 	for tweet in tweetlist:
+# 		if "wins" in tweet:
+# 			category = tweet.partition("wins ")[2]
+# 		else:
+# 			category = tweet.partition("won ")[2]
+# 		category.replace("for ","",1)
+# 		category.lower()
+# 		if category.startswith("best "):
+# 			possibleCat.append(category.partition(" for")[0])
+
+# 	totalcats=[]
+
+# 	for cat in Counter(possibleCat).most_common():
+# 		if cat[1] > 1:
+# 			totalcats.append(cat[0])
+
+# 	return list(set(totalcats))
+
 
 with open('goldenglobes.json', 'r') as f:
 	tweets = map(json.loads, f) 
@@ -146,34 +173,6 @@ print_winner(tvComedy, "best TV comedy.")
 print_winner(tvDrama, "best TV drama.")
 
 
-# various functions 
-
-def find_winner(possiblelist):
-	return Counter(possiblelist).most_common(1)[0][0]
-
-def print_winner(winner, category):
-	print find_winner(winner) + "won " + category
-	print "\n"
-
-# def find_category(tweetlist):
-# 	possibleCat=[]
-# 	for tweet in tweetlist:
-# 		if "wins" in tweet:
-# 			category = tweet.partition("wins ")[2]
-# 		else:
-# 			category = tweet.partition("won ")[2]
-# 		category.replace("for ","",1)
-# 		category.lower()
-# 		if category.startswith("best "):
-# 			possibleCat.append(category.partition(" for")[0])
-
-# 	totalcats=[]
-
-# 	for cat in Counter(possibleCat).most_common():
-# 		if cat[1] > 1:
-# 			totalcats.append(cat[0])
-
-# 	return list(set(totalcats))
 
 
 
