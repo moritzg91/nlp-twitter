@@ -1,19 +1,21 @@
 import json, nltk
 from alchemyapi import AlchemyAPI
+from collections import Counter
 
 class Award:
 	def __init__(self, name, keyword):
-		self.name = name
-		self.keyword = keyword
-		self.winner = None
+		self.name = name ## eg. ActorInMiniseries
+		self.keyword = keyword ## eg. "animated" or ["actor","miniseries"]
+		self.winner = None 
 		self.nominees = [None, None, None, None, None]
-		self.winner_candidates = []
+		self.winner_candidates = [] ## internal use
+		self.winner_str = name ## eg. "best actor in a miniseries."
 
 	def extract_most_likely_winner(self):
 		if len(self.winner_candidates) > 0:
-			return Counter(self.winner_candidates).most_common(1)[0][0]
+			self.winner = Counter(self.winner_candidates).most_common(1)[0][0]
 		else:
-			raise RuntimeError
+			self.winner = "None"
 
 class GoldenGlobeAnalyzer:
 	def __init__(self, jsonFile, category_list = None):
@@ -25,7 +27,8 @@ class GoldenGlobeAnalyzer:
 		self.awards = []
 
 		for c in category_list:
-			self.awards.append(Award(c))
+			print c
+			self.awards.append(Award(c[0],c[1]))
 
 		self.alchemyapi = AlchemyAPI()
 
@@ -93,9 +96,9 @@ class GoldenGlobeAnalyzer:
 	# 				entity_map[e] = 1
 
 	# 	print entity_map
-		return entity_map
+	#	return entity_map
 
-	def find_winners(self, awardName):
+	def find_winners(self):
 
 		tweets_lst = []
 
@@ -109,6 +112,8 @@ class GoldenGlobeAnalyzer:
 				info = info.replace('"','')
 			tweets_lst.append(info)
 		tweets_lst = list(set(tweets_lst))
+		
+		print len(tweets_lst)
 
 		for i in tweets_lst:
 			if "wins" in i:
@@ -117,17 +122,23 @@ class GoldenGlobeAnalyzer:
 				i = i.partition("won")
 			winner = i[0]
 			category = i[2].lower()
+			print category
+			print winner
 			for award in self.awards:
-				if type(award.keyword) is str:
+				#print award.name
+				print award.keyword
+				if type(award.keyword) == str:
 					if award.keyword in category:
+						print winner
 						award.winner_candidates.append(winner)
 						break
-				elif type(award.keyword) is list:
+				elif type(award.keyword) == list:
 					correctCategory = True
 					for kw in award.keyword:
 						if kw not in category:
 							correctCategory = False
 					if correctCategory:
+						print winner
 						award.winner_candidates.append(winner)
 						break
 
@@ -141,33 +152,42 @@ class GoldenGlobeAnalyzer:
 		print award.winner + "won " + award.name
 		print "\n"
 
+	def print_winners(self):
+		for award in self.awards:
+			self.print_winner(award)
+
 if __name__ == '__main__':
 
+	## TODO: use regex instead of keyword matching (more precise)
 	categories = [
-		"animatedFeatureFilm",
-		"director",
-		"foreignLanguagueFilm",
-		"miniseries",
-		"mpComed",
-		"mpDrama",
-		"originalScor",
-		"originalSon",
-		"actorInMiniseries",
-		"actorInMPDram",
-		"actorInMPComed",
-		"supportingActorMP",
-		"supportingActorMiniSeries",
-		"actorTVDram",
-		"actorTVComedy",
-		"supportingActressInMP",
-		"actressMiniSeries",
-		"actressMPComedy =",
-		"actressMPDrama ",
-		"actressTVDrama ",
-		"actressTVComedy =",
-		"screenplay ",
-		"tvDrama",
-		"tvComedy "
+		["animatedFeatureFilm", "animated"],
+		["director", "director"],
+		["foreignLanguagueFilm","foreign"],
+		["originalScore","score"],
+		["originalSong","song"],
+		["supportingActorInMiniseries",["actor","mini","supporting"]],
+		["actorInMiniseries",["actor","mini"]],
+		["actorInMPDrama",["actor","motion picture","drama"]],
+		["actorInMPComedy",["actor","motion picture","comedy"]],
+		["supportingActorInMP",["actor","supporting","motion picture"]],
+		["actorTVDrama",["actor","tv","drama"]],
+		["actorTVComedy",["actor","tv","comedy"]],
+		["supportingActressInMiniseries",["actress","mini","supporting"]],
+		["actressInMiniseries",["actress","mini"]],
+		["actressInMPComedy", ["actress","motion picture","comedy"]],
+		["actressInMPDrama", ["actress","motion picture","drama"]],
+		["supportingActorInMP",["actress","supporting","motion picture"]],
+		["actressTVDrama", ["actress","tv","drama"]],
+		["actressTVComedy",["actress","tv","comedy"]],
+		["screenplay","screenplay"],
+		["miniseries","miniseries"],
+		["tvDrama",["tv","drama"]],
+		["tvComedy",["tv","comedy"]],
+		["mpComedy",["motion picture","comedy"]],
+		["mpDrama",["motion picture","drama"]],
 	]
 
 	gga = GoldenGlobeAnalyzer('goldenglobes.json', categories)
+
+	gga.find_winners()
+	gga.print_winners()
