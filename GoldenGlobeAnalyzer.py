@@ -1,4 +1,4 @@
-import json, nltk
+import json, nltk, operator, re
 from alchemyapi import AlchemyAPI
 from collections import Counter
 
@@ -24,12 +24,15 @@ class GoldenGlobeAnalyzer:
 		with open(jsonFile, 'r') as f:
 			self.tweets = map(json.loads, f)
 
+		print "-- read tweets\n"
+
 		self.awards = []
 
 		for c in category_list:
 			print c
 			self.awards.append(Award(c[0],c[1]))
 
+		self.hosts = [None,None]
 		self.alchemyapi = AlchemyAPI()
 
 	def find_tweets_by_user(self, username):
@@ -58,45 +61,75 @@ class GoldenGlobeAnalyzer:
 					resps.append({'text': t['text'], 'sentiment': response['docSentiment'] })
 		return resps
 
-	def get_entities(tweet_text):
+	def get_entities(self,tweet_text):
 		tweet_text = tweet_text.encode('utf-8')
 		tokens = nltk.word_tokenize(tweet_text)
 		tagged = nltk.pos_tag(tokens)
 		chunks = nltk.chunk.ne_chunk(tagged)
-		print chunks
 		
 		entity_names = []
 		for word_tuple in chunks.pos():
-			print word_tuple
 			if word_tuple[1] == 'PERSON' or word_tuple[1] == 'ORGANIZATION':
-				entity_names.append(word_tuple[0])
+				if word_tuple[0][0].lower() != "golden" and word_tuple[0][0].lower() != "globes" and word_tuple[0][0].lower() != "goldenglobes":
+					entity_names.append(word_tuple[0])
 		return entity_names
 
-	# def find_winner_of(self, award):
-	# 	tweets_about_category = self.find_tweets_containing(self.tweets, award.name)
+	def find_hosts(self):
+		def _get_permutations_internal(lst):
+			permutations = {}
+			for i in range(len(lst)):
+				for j in range(len(lst)):
+					if i != j:
+						name = lst[i] + " " + lst[j]
+						permutations[name] = 0
+			return permutations
 
-	# 	# try not to eat up all of our alchemyAPI limits
-	# 	if len(tweets_about_category) > 200:
-	# 		tweets_about_category = tweets_about_category[:200]
+		relevant = []
+		cont = True
 
-	# 	tagged_tweets = self.get_sentiment_of_tweets(tweets_about_category)
+		for t in self.tweets:
+			if len(re.findall("host*",t["text"])) > 0:
+				relevant.append(t)
 
-	# 	good_tweets = []
-	# 	for r in tagged_tweets:
-	# 		if r['sentiment'] > 0.1:
-	# 			good_tweets.append(r['text'])
+		ent_dict = {}
+		for tweet in relevant:
+			ents = self.get_entities(tweet["text"])
+			for e in ents:
+				if e in ent_dict:
+					ent_dict[e] += 1
+					#print ent_dict[e]
+				else:
+					ent_dict[e] = 1
+				if ent_dict[e] > 100: # cutoff to improve performance
+					cont = False
+			if not cont:
+				break
 
-	# 	entity_map = {}
-	# 	for gt in good_tweets:
-	# 		entities = self.get_entities(gt)
-	# 		for e in entities:
-	# 			if e in entity_map.keys():
-	# 				entity_map[e] += 1
-	# 			else:
-	# 				entity_map[e] = 1
+		sorted_ents = sorted(ent_dict.iteritems(), key=operator.itemgetter(1), reverse = True)
+		#print sorted_ents
 
-	# 	print entity_map
-	#	return entity_map
+		## two first names and two last names, so now we just need to figure out which of them belong together
+		name_parts = []
+		for i in range(4):
+			name_parts.append(sorted_ents[i][0][0])
+
+		host_idx = 0
+		possible_name_combos = _get_permutations_internal(name_parts)
+		for tweet in self.tweets:
+			for name in possible_name_combos:
+				if name in tweet["text"]:
+					possible_name_combos[name] += 1
+					if possible_name_combos[name] > 10:
+						self.hosts[host_idx] = name
+						host_idx += 1
+						if host_idx > 1:
+							return
+						possible_name_combos[name] -= 1000 # ugly hack but it works
+		return
+
+	def print_hosts(self):
+		for h in self.hosts:
+			print h + " was a host\n"
 
 	def find_winners(self):
 
@@ -113,7 +146,7 @@ class GoldenGlobeAnalyzer:
 			tweets_lst.append(info)
 		tweets_lst = list(set(tweets_lst))
 		
-		print len(tweets_lst)
+		#print len(tweets_lst)
 
 		for i in tweets_lst:
 			if "wins" in i:
@@ -122,14 +155,14 @@ class GoldenGlobeAnalyzer:
 				i = i.partition("won")
 			winner = i[0]
 			category = i[2].lower()
-			print category
-			print winner
+			#print category
+			#print winner
 			for award in self.awards:
 				#print award.name
 				print award.keyword
 				if type(award.keyword) == str:
 					if award.keyword in category:
-						print winner
+						#print winner
 						award.winner_candidates.append(winner)
 						break
 				elif type(award.keyword) == list:
@@ -138,7 +171,7 @@ class GoldenGlobeAnalyzer:
 						if kw not in category:
 							correctCategory = False
 					if correctCategory:
-						print winner
+						#print winner
 						award.winner_candidates.append(winner)
 						break
 
@@ -147,14 +180,10 @@ class GoldenGlobeAnalyzer:
 
 		return
 
-
-	def print_winner(self, award):
-		print award.winner + "won " + award.name
-		print "\n"
-
 	def print_winners(self):
 		for award in self.awards:
-			self.print_winner(award)
+			print award.winner + "won " + award.name
+			print "\n"
 
 if __name__ == '__main__':
 
@@ -189,5 +218,8 @@ if __name__ == '__main__':
 
 	gga = GoldenGlobeAnalyzer('goldenglobes.json', categories)
 
-	gga.find_winners()
-	gga.print_winners()
+	gga.find_hosts()
+	gga.print_hosts()
+
+	#gga.find_winners()
+	#gga.print_winners()
