@@ -31,7 +31,6 @@ def get_sentiment_of_tweets(tweet_list):
 				resps.append({'text': t['text'], 'sentiment': response['sentiment'] })
 			elif 'docSentiment' in response:
 				resps.append({'text': t['text'], 'sentiment': response['docSentiment'] })
-	print resps
 	return resps
 
 
@@ -50,29 +49,32 @@ def get_entities(tweet_text):
 			entity_names.append(word_tuple[0])
 	return entity_names
 
-def find_winner_of(tweets, category_name):
-	tweets_about_category = find_tweets_containing(tweets, category_name)
-	# try not to eat up all of our alchemyAPI limits
-	if len(tweets_about_category) > 200:
-		tweets_about_category = tweets_about_category[:200]
+# def find_winner_of(tweets, category_name):
+# 	tweets_about_category = find_tweets_containing(tweets, category_name)
+# 	# try not to eat up all of our alchemyAPI limits
+# 	if len(tweets_about_category) > 200:
+# 		tweets_about_category = tweets_about_category[:200]
 
-	tagged_tweets = get_sentiment_of_tweets(tweets_about_category)
+# 	tagged_tweets = get_sentiment_of_tweets(tweets_about_category)
 
-	good_tweets = []
-	for r in tagged_tweets:
-		if r['sentiment'] > 0.1:
-			good_tweets.append(r['text'])
+# 	good_tweets = []
+# 	for r in tagged_tweets:
+# 		if r['sentiment'] > 0.1:
+# 			good_tweets.append(r['text'])
 
-	entity_map = {}
-	for gt in good_tweets:
-		entities = get_entities(gt)
-		for e in entities:
-			if e in entity_map.keys():
-				entity_map[e] += 1
-			else:
-				entity_map[e] = 1
+# 	entity_map = {}
+# 	for gt in good_tweets:
+# 		entities = get_entities(gt)
+# 		for e in entities:
+# 			if e in entity_map.keys():
+# 				entity_map[e] += 1
+# 			else:
+# 				entity_map[e] = 1
 
-	print entity_map
-	return entity_map
+# 	print entity_map
+# 	return entity_map
+
+	def find_winner(self,possiblelist):
+		return Counter(possiblelist).most_common(1)[0][0]
 
 #find_winner_of(tweets, 'director')
