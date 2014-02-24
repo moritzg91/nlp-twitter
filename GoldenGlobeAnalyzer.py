@@ -344,13 +344,13 @@ if __name__ == '__main__':
 
 	gga = GoldenGlobeAnalyzer('goldenglobes.json', categories, True)
 
-	gga.find_hosts()
+	#gga.find_hosts()
 	#gga.print_hosts()
 
-	gga.find_winners()
+	#gga.find_winners()
 	#gga.print_winners()
 
-	gga.find_nominees()
+	#gga.find_nominees()
 
 	gga.find_presenters()
 	#gga.print_presenters()
