@@ -139,14 +139,16 @@ class GoldenGlobeAnalyzer:
 				if not cont:
 					break
 			possible_name_combos = sorted(possible_name_combos.iteritems(), key=operator.itemgetter(1), reverse = True)
-			if award.presenters[0] == "None":
-				try:
-					if possible_name_combos[0][1] != 0:
-						award.presenters[0] = possible_name_combos[0][0]
-					if possible_name_combos[1][1] != 0:
-						award.presenters[1] = possible_name_combos[1][0]
-				except IndexError:
-					pass
+			if award.presenters[0] == "None": ## fallback approach
+				for t in relevant:
+					if "presenting" in t["text"]:
+						i = t["text"].partition("presenting")
+						if "and" in i[0]:
+							j = i[0].partition("and")
+							award.presenters[0] = j[0]
+							award.presenters[1] = j[1]
+						else:
+							award.presenters[0] = i[0]
 
 			print "-- " + award.presenters[0] + ((" and " + award.presenters[1] ) if award.presenters[1] != "None" else "") + " presented " + award.long_name
 
