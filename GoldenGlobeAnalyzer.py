@@ -11,6 +11,7 @@ class Award:
 		self.winner_candidates = [] ## internal use
 		self.presenters = ["None","None"]
 		self.long_name = long_name
+		self.popularity = 0.0
 
 	def extract_most_likely_winner(self):
 		if len(self.winner_candidates) > 0:
@@ -62,16 +63,14 @@ class GoldenGlobeAnalyzer:
 				ret.append(t)
 		return ret
 
-	def get_sentiment_of_tweets(self,tweet_list):
-		resps = []
-		for t in tweet_list:
-			response = self.alchemyapi.sentiment('text',t['text'].encode('ascii','ignore'))
-			if response['status'] != u'ERROR':
-				if 'sentiment' in response:
-					resps.append({'text': t['text'], 'sentiment': response['sentiment'] })
-				elif 'docSentiment' in response:
-					resps.append({'text': t['text'], 'sentiment': response['docSentiment'] })
-		return resps
+	def get_sentiment_of_tweets(self,tweet_lump):
+		response = self.alchemyapi.sentiment('text',tweet_lump.encode('ascii','ignore'))
+		if response['status'] != u'ERROR':
+			if 'sentiment' in response:
+				return response['sentiment']
+			elif 'docSentiment' in response:
+				return response['docSentiment']
+		return 0.0
 
 	def get_entities(self,tweet_text):
 		tweet_text = tweet_text.encode('utf-8')
@@ -92,14 +91,14 @@ class GoldenGlobeAnalyzer:
 		for award in self.awards:
 			blacklist += award.winner.lower()
 			for nominee in award.nominees:
-				blacklist += nominee
+				blacklist += nominee.lower()
 
 		for award in self.awards:
 			relevant = []
 			cont = True
 
 			for t in self.tweets:
-				if re.findall("present*",t["text"]) and re.findall(award.re,t["text"]):
+				if re.findall(r"[pP]resent*",t["text"]) and re.findall(award.re,t["text"]):
 					relevant.append(t)
 
 			ent_dict = {}
@@ -142,6 +141,9 @@ class GoldenGlobeAnalyzer:
 					break
 
 			if award.presenters[0] == "None":
+				for t in self.tweets:
+					if re.findall(award.re,t["text"]):
+						relevant.append(t)
 				ent_dict2 = {}
 				relevant_text = ""
 				for r in relevant:
@@ -149,10 +151,9 @@ class GoldenGlobeAnalyzer:
 
 				response = self.alchemyapi.entities('text',relevant_text.encode('ascii','ignore'))
 				if response['status'] == 'OK':
-
 					for entity in response['entities']:
 						ent_txt = entity["text"].encode('ascii','ignore')
-						if ent_txt.lower() != "goldenglobes" and ent_txt.lower() != "golden globes" and ent_txt.lower() not in blacklist:
+						if ent_txt.lower() != "goldenglobes" and ent_txt.lower() != "golden globes":
 							if ent_txt in ent_dict2:
 								ent_dict2[ent_txt] += 1
 							else:
@@ -162,8 +163,6 @@ class GoldenGlobeAnalyzer:
 				for s in range(min(len(sorted_ents),2)):
 					award.presenters[s] = sorted_ents[s][0]
 					blacklist += " " + sorted_ents[s][0].lower()
-				print ent_dict2
-				print "used alchemyAPI"
 
 			print "-- " + award.presenters[0] + ((" and " + award.presenters[1] ) if award.presenters[1] != "None" else "") + " presented " + award.long_name
 
@@ -194,7 +193,6 @@ class GoldenGlobeAnalyzer:
 				entity = e[0]
 				if entity in ent_dict:
 					ent_dict[entity] += 1
-					#print ent_dict[e]
 				else:
 					ent_dict[entity] = 1
 				if ent_dict[entity] > self._entity_count_cutoff: # cutoff to improve performance
@@ -203,7 +201,6 @@ class GoldenGlobeAnalyzer:
 				break
 
 		sorted_ents = sorted(ent_dict.iteritems(), key=operator.itemgetter(1), reverse = True)
-		#print sorted_ents
 
 		## two first names and two last names, so now we just need to figure out which of them belong together
 		name_parts = []
@@ -257,7 +254,6 @@ class GoldenGlobeAnalyzer:
 			category = i[2]
 
 			for award in self.awards:
-				#print award.name
 				if re.findall(award.re,category):
 					award.winner_candidates.append(winner)
 					break
@@ -294,7 +290,6 @@ class GoldenGlobeAnalyzer:
 
 			response = self.alchemyapi.entities('text',relevant_text.encode('ascii','ignore'))
 			if response['status'] == 'OK':
-				#print(json.dumps(response, indent=4))
 
 				for entity in response['entities']:
 					ent_txt = entity["text"].encode('ascii','ignore')
@@ -308,6 +303,27 @@ class GoldenGlobeAnalyzer:
 			for s in range(min(len(sorted_ents),5)):
 				award.nominees[s] = sorted_ents[s][0]
 			print "The nominees for " + award.long_name + " are " + award.nominees[0] + ", " + award.nominees[1] + ", " + award.nominees[2] + ", " + award.nominees[3] + " and " + award.nominees[4]
+
+	def find_popularity_of_winners(self):
+		for award in self.awards:
+			if award.winner != "None":
+				relevant_text = ""
+				for t in self.tweets:
+					if award.winner in t["text"]:
+						relevant_text += award.winner + '\n'
+				award.popularity = self.get_sentiment_of_tweets(relevant_text)
+
+		most_popular = self.awards[0]
+		least_popular = self.awards[0]
+		for award in self.awards:
+			if award.popularity > most_popular.popularity:
+				most_popular = award
+			elif award.popularity < least_popular.popularity:
+				least_popular = award
+
+		print "-- The most popular winner was " + most_popular.winner + " and the least popular winner was " + least_popular.winner
+		return
+
 
 if __name__ == '__main__':
 
@@ -344,13 +360,15 @@ if __name__ == '__main__':
 
 	gga = GoldenGlobeAnalyzer('goldenglobes.json', categories, True)
 
-	#gga.find_hosts()
+	gga.find_hosts()
 	#gga.print_hosts()
 
-	#gga.find_winners()
+	gga.find_winners()
 	#gga.print_winners()
 
 	#gga.find_nominees()
 
-	gga.find_presenters()
+	#gga.find_presenters()
+
+	gga.find_popularity_of_winners()
 	#gga.print_presenters()
