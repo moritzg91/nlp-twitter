@@ -139,16 +139,6 @@ class GoldenGlobeAnalyzer:
 				if not cont:
 					break
 			possible_name_combos = sorted(possible_name_combos.iteritems(), key=operator.itemgetter(1), reverse = True)
-			if award.presenters[0] == "None": ## fallback approach
-				for t in relevant:
-					if "presenting" in t["text"]:
-						i = t["text"].partition("presenting")
-						if "and" in i[0]:
-							j = i[0].partition("and")
-							award.presenters[0] = j[0]
-							award.presenters[1] = j[1]
-						else:
-							award.presenters[0] = i[0]
 
 			print "-- " + award.presenters[0] + ((" and " + award.presenters[1] ) if award.presenters[1] != "None" else "") + " presented " + award.long_name
 
@@ -220,7 +210,7 @@ class GoldenGlobeAnalyzer:
 		new_tweets = []
 
 		for tweet in self.tweets:
-			if ("wins" in tweet["text"] or "won" in tweet["text"]) and "should" not in tweet["text"] and "presenting" not in tweet["text"]:
+			if ("wins" in tweet["text"] or "won" in tweet["text"]) and "should" not in tweet["text"]:
 				info = (tweet["text"].partition("http")[0])
 				info = info.partition(":")[2]
 				if "@" in info:
@@ -266,8 +256,8 @@ if __name__ == '__main__':
 		["foreignLanguagueFilm",			r"\b[fF]oreign\b", 														"foreign language film"],
 		["originalScore",					r"\b[sS]core\b", 														"original score"],
 		["originalSong",					r"\b[sS]ong\b", 														"original song"],
-		["actorTVDrama",					r"\b([aA]ctor)|([pP]erformance).+?\b[tT][vV]\b.+?\b[dD]rama\b", 					"actor in a TV drama"],
-		["actorTVComedy",					r"\b([aA]ctor)|([pP]erformance).+?\b[tT][vV]\b.+?\b[cC]omedy\b", 					"actor in a TV comedy"],
+		["actorTVDrama",					r"\b[aA]ctor.+?\b[tT][vV]\b.+?\b[dD]rama\b", 					"actor in a TV drama"],
+		["actorTVComedy",					r"\b[aA]ctor.+?\b[tT][vV]\b.+?\b[cC]omedy\b", 					"actor in a TV comedy"],
 		["supportingActorInMiniseries",		r"\b[sS]upporting [aA]ctor.+?\b[mM]ini", 								"supporting actor in mini series"],
 		["actorInMiniseries",				r"\b[aA]ctor.+?\b[mM]ini", 												"actor in a mini series"],
 		
