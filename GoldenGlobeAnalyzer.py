@@ -90,8 +90,6 @@ class GoldenGlobeAnalyzer:
 		blacklist = ""
 		for award in self.awards:
 			blacklist += award.winner.lower()
-			for nominee in award.nominees:
-				blacklist += nominee.lower()
 
 		for award in self.awards:
 			relevant = []
@@ -181,10 +179,10 @@ class GoldenGlobeAnalyzer:
 		for t in self.tweets:
 			if len(re.findall("host*",t["text"])) > 0:
 				relevant.append(t)
-			else:
-				new_tweets.append(t)
+		#	else:
+		#		new_tweets.append(t)
 
-		self.tweets = new_tweets
+		#self.tweets = new_tweets
 
 		ent_dict = {}
 		for tweet in relevant:
@@ -282,6 +280,8 @@ class GoldenGlobeAnalyzer:
 			for t in self.tweets:
 				if re.findall(r"([nN]ominated.*[fF]or)|([nN]ominee)",t["text"]) and re.findall(award.re,t["text"]) and "should" not in t["text"] and "wasn't" not in t["text"]:
 					relevant.append(t)
+				elif re.findall(r"\b[sS]hould.*[wW]on\b",t["text"]) and re.findall(award.re,t["text"]):
+					relevant.append(t)
 
 			ent_dict = {}
 			relevant_text = ""
@@ -324,6 +324,39 @@ class GoldenGlobeAnalyzer:
 		print "-- The most popular winner was " + most_popular.winner + " and the least popular winner was " + least_popular.winner
 		return
 
+	def find_dress_opinions(self):
+		_all_positive = []
+		_all_negative = []
+		people = []
+		for award in self.awards:
+			people.append(award.winner)
+		for host in self.hosts:
+			people.append(host.encode('ascii','ignore'))
+
+		for person in people:
+			if person != "None":
+				relevant_txt = ""
+				for t in self.tweets:
+					if person in t["text"] and re.findall(r"\b[dD]ress\b",t["text"]):
+						relevant_txt += t["text"]
+				sentiment_score = self.get_sentiment_of_tweets(relevant_txt)
+				if type(sentiment_score) is not float:
+					#print person + " : " + str(sentiment_score["score"])
+					if float(sentiment_score["score"]) > 0.15:
+						_all_positive.append([sentiment_score["score"],person])
+					elif sentiment_score != 0.0:
+						_all_negative.append([sentiment_score["score"],person])
+		
+		_all_positive = sorted(_all_positive, key = lambda tup : tup[0])
+		_all_negative = sorted(_all_negative, key = lambda tup : tup[0])
+
+		print "People liked these people's dresses (in descending order)"
+		for a in _all_positive:
+			print " - " + a[1]
+
+		print "People didn't like these people's dresses very much (in descending order)"
+		for a in _all_negative:
+			print " - " + a[1]
 
 if __name__ == '__main__':
 
@@ -362,13 +395,16 @@ if __name__ == '__main__':
 
 	gga.find_hosts()
 	#gga.print_hosts()
-
+	print "\n====================\n"
 	gga.find_winners()
 	#gga.print_winners()
+	print "\n====================\n"
+	gga.find_nominees()
 
-	#gga.find_nominees()
+	print "\n====================\n"
 
-	#gga.find_presenters()
-
+	gga.find_presenters()
+	print "\n====================\n"
 	gga.find_popularity_of_winners()
-	#gga.print_presenters()
+	print "\n====================\n"
+	gga.find_dress_opinions()
