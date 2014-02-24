@@ -7,7 +7,7 @@ class Award:
 		self.name = name ## eg. ActorInMiniseries
 		self.re = regex ## eg. "animated" or ["actor","miniseries"]
 		self.winner = ""
-		self.nominees = [None, None, None, None, None]
+		self.nominees = ["None", "None", "None", "None", "None"]
 		self.winner_candidates = [] ## internal use
 		self.presenters = ["None","None"]
 		self.long_name = long_name
@@ -22,7 +22,7 @@ class GoldenGlobeAnalyzer:
 	def __init__(self, jsonFile, category_list = None, debug = False):
 		'''Initialize a GGA object and load the tweets contained in the json file'''
 		self.debug = debug
-		self._entity_count_cutoff = 30
+		self._entity_count_cutoff = 80
 
 		self.tweets = []
 		with open(jsonFile, 'r') as f:
@@ -91,6 +91,8 @@ class GoldenGlobeAnalyzer:
 		blacklist = ""
 		for award in self.awards:
 			blacklist += award.winner.lower()
+			for nominee in award.nominees:
+				blacklist += nominee
 
 		for award in self.awards:
 			relevant = []
@@ -112,7 +114,7 @@ class GoldenGlobeAnalyzer:
 							#print ent_dict[e]
 						else:
 							ent_dict[entity] = 1
-						if ent_dict[entity] > 20: # cutoff to improve performance
+						if ent_dict[entity] > 30: # cutoff to improve performance
 							cont = False
 				if not cont:
 					break
@@ -138,7 +140,30 @@ class GoldenGlobeAnalyzer:
 							possible_name_combos[name] -= 1000 # ugly hack but it works
 				if not cont:
 					break
-			possible_name_combos = sorted(possible_name_combos.iteritems(), key=operator.itemgetter(1), reverse = True)
+
+			if award.presenters[0] == "None":
+				ent_dict2 = {}
+				relevant_text = ""
+				for r in relevant:
+					relevant_text += r["text"] + "\n"
+
+				response = self.alchemyapi.entities('text',relevant_text.encode('ascii','ignore'))
+				if response['status'] == 'OK':
+
+					for entity in response['entities']:
+						ent_txt = entity["text"].encode('ascii','ignore')
+						if ent_txt.lower() != "goldenglobes" and ent_txt.lower() != "golden globes" and ent_txt.lower() not in blacklist:
+							if ent_txt in ent_dict2:
+								ent_dict2[ent_txt] += 1
+							else:
+								ent_dict2[ent_txt] = 1
+
+				sorted_ents = sorted(ent_dict2.iteritems(), key=operator.itemgetter(1), reverse = True)
+				for s in range(min(len(sorted_ents),2)):
+					award.presenters[s] = sorted_ents[s][0]
+					blacklist += " " + sorted_ents[s][0].lower()
+				print ent_dict2
+				print "used alchemyAPI"
 
 			print "-- " + award.presenters[0] + ((" and " + award.presenters[1] ) if award.presenters[1] != "None" else "") + " presented " + award.long_name
 
@@ -248,6 +273,42 @@ class GoldenGlobeAnalyzer:
 			print award.winner + "won " + award.long_name
 			print "\n"
 
+	def find_nominees(self):
+
+		blacklist = ""
+		for award in self.awards:
+			blacklist += award.winner.lower()
+
+		for award in self.awards:
+			relevant = []
+			cont = True
+
+			for t in self.tweets:
+				if re.findall(r"([nN]ominated.*[fF]or)|([nN]ominee)",t["text"]) and re.findall(award.re,t["text"]) and "should" not in t["text"] and "wasn't" not in t["text"]:
+					relevant.append(t)
+
+			ent_dict = {}
+			relevant_text = ""
+			for r in relevant:
+				relevant_text += r["text"] + "\n"
+
+			response = self.alchemyapi.entities('text',relevant_text.encode('ascii','ignore'))
+			if response['status'] == 'OK':
+				#print(json.dumps(response, indent=4))
+
+				for entity in response['entities']:
+					ent_txt = entity["text"].encode('ascii','ignore')
+					if ent_txt.lower() != "goldenglobes" and ent_txt.lower() != "golden globes":
+						if ent_txt in ent_dict:
+							ent_dict[ent_txt] += 1
+						else:
+							ent_dict[ent_txt] = 1
+
+			sorted_ents = sorted(ent_dict.iteritems(), key=operator.itemgetter(1), reverse = True)
+			for s in range(min(len(sorted_ents),5)):
+				award.nominees[s] = sorted_ents[s][0]
+			print "The nominees for " + award.long_name + " are " + award.nominees[0] + ", " + award.nominees[1] + ", " + award.nominees[2] + ", " + award.nominees[3] + " and " + award.nominees[4]
+
 if __name__ == '__main__':
 
 	categories = [
@@ -258,23 +319,23 @@ if __name__ == '__main__':
 		["originalSong",					r"\b[sS]ong\b", 														"original song"],
 		["actorTVDrama",					r"\b[aA]ctor.+?\b[tT][vV]\b.+?\b[dD]rama\b", 					"actor in a TV drama"],
 		["actorTVComedy",					r"\b[aA]ctor.+?\b[tT][vV]\b.+?\b[cC]omedy\b", 					"actor in a TV comedy"],
-		["supportingActorInMiniseries",		r"\b[sS]upporting [aA]ctor.+?\b[mM]ini", 								"supporting actor in mini series"],
+		["supportingActorInMiniseries",		r"\b[sS]upporting [aA]ctor.+?\b[mM]ini.*", 								"supporting actor in mini series"],
 		["actorInMiniseries",				r"\b[aA]ctor.+?\b[mM]ini", 												"actor in a mini series"],
 		
-		["actorInMPDrama",					r"\b[bB]est [aA]ctor.+?\b[dD]rama\b", 									"actor in a motion picture - drama"],
-		["actorInMPComedy",					r"\b[bB]est [aA]ctor.+?\b[cC]omedy\b", 										"actor in a motion picture - comedy"],
+		["actorInMPDrama",					r"\b[aA]ctor.+?\b[dD]rama\b", 									"actor in a motion picture - drama"],
+		["actorInMPComedy",					r"\b[aA]ctor.+?\b[cC]omedy\b", 										"actor in a motion picture - comedy"],
 		["supportingActorInMP",				r"\b[sS]upporting [aA]ctor.+?(\b[mM]otion [pP]icture\b)|(\b[Mm]ovie\b)|([mM][pP])", 	"supporting actor in a motion picture"],
 		["supportingActressInMiniseries",	r"\b[sS]upporting [aA]ctress.+?\b[mM]ini", 								"supporting actress in a mini series"],
 
 		["actressTVDrama", 					r"\b[aA]ctress.+?\b[tT][vV]\b.+?\b[dD]rama\b", 					"actress in a TV drama"],
 		["actressTVComedy",					r"\b[aA]ctress.+?\b[tT][vV]\b.+?\b[cC]omedy\b", 				"actress in a TV comedy"],
-		["actressInMiniseries",				r"\b[aA]ctress.+?\b[mM]ini", 											"actress in a mini series"],
-		["actressInMPComedy", 				r"\b[bB]est [aA]ctress.+?\b[cC]omedy\b", 	"actress in a motion picture - comedy"],
-		["actressInMPDrama", 				r"\b[bB]est [aA]ctress.+?\b[dD]rama\b", 		"actress in a motion picture - drama"],
+		["actressInMiniseries",				r"\b[aA]ctress.+?\b[mM]ini.*", 											"actress in a mini series"],
+		["actressInMPComedy", 				r"\b[aA]ctress.+?\b[cC]omedy\b", 	"actress in a motion picture - comedy"],
+		["actressInMPDrama", 				r"\b[aA]ctress.+?\b[dD]rama\b", 		"actress in a motion picture - drama"],
 		
-		["supportingActressInMP",			r"\b[sS]upporting [aA]ctress.+?(\b[mM]otion [pP]icture\b)|(\b[Mm]ovie\b)|([mM][pP])", 	"supporting actress in a motion picture"],
+		["supportingActressInMP",			r"\b[sS]upporting [aA]ctress\b", 	"supporting actress in a motion picture"],
 		["screenplay",						r"\b[sS]creenplay\b", 													"screenplay"],
-		["miniseries",						r"\b[mM]iniseries\b", 													"miniseries"],
+		["miniseries",						r"\b[mM]ini[- ]?[sS]eries\b", 													"miniseries"],
 		["tvDrama",							r"\b[tT][vV].+?[dD]rama\b", 											"TV drama"],
 		["tvComedy",						r"\b[tT][vV].+?[cC]omedy\b", 											"TV comedy"],
 		["mpComedy",						r"\b[mM]otion [pP]icture.+?\b[cC]omedy\b",								"motion picture - comedy"],
@@ -288,6 +349,8 @@ if __name__ == '__main__':
 
 	gga.find_winners()
 	#gga.print_winners()
+
+	gga.find_nominees()
 
 	gga.find_presenters()
 	#gga.print_presenters()
